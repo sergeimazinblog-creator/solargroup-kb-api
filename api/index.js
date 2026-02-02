@@ -5,44 +5,43 @@ export default function handler(req, res) {
   const { q } = req.query;
 
   if (!q) {
-    res.status(400).json({ error: "missing q" });
-    return;
+    return res.status(400).json({ error: "missing q" });
   }
 
-  const query = q.toLowerCase();
-
+  const search = q.toLowerCase();
   const dataDir = path.join(process.cwd(), "data");
+
   let results = [];
 
   try {
     const files = fs.readdirSync(dataDir);
 
-    for (const file of files) {
-      const filePath = path.join(dataDir, file);
-      const content = fs.readFileSync(filePath, "utf8");
+    files.forEach((fileName) => {
+      if (!fileName.endsWith(".txt")) return;
 
-      const lower = content.toLowerCase();
-      const idx = lower.indexOf(query);
+      const fullPath = path.join(dataDir, fileName);
+      const text = fs.readFileSync(fullPath, "utf8");
 
-      if (idx !== -1) {
-        const snippet = content.substring(
-          Math.max(0, idx - 400),
-          Math.min(content.length, idx + 400)
-        );
+      const blocks = text.split("=====").map((b) => b.trim());
 
+      const matchedBlocks = blocks.filter((b) =>
+        b.toLowerCase().includes(search)
+      );
+
+      if (matchedBlocks.length > 0) {
         results.push({
-          fileName: file,
-          snippet,
+          fileName,
+          matchedBlocks,
         });
       }
-    }
-  } catch (e) {
-    res.status(500).json({ error: "read error", detail: e.toString() });
-    return;
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "server error", details: err.message });
   }
 
   res.json({
-    query,
-    results
+    query: q,
+    results,
   });
 }
