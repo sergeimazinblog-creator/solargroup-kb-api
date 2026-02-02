@@ -9,46 +9,40 @@ export default function handler(req, res) {
     return;
   }
 
-  const query = q.toLowerCase().trim();
+  const query = q.toLowerCase();
 
-  // Папка с файлами
   const dataDir = path.join(process.cwd(), "data");
+  let results = [];
 
-  // Читаем список файлов
-  let files;
   try {
-    files = fs.readdirSync(dataDir);
-  } catch (err) {
-    res.status(500).json({ error: "Cannot read data directory", details: err.message });
+    const files = fs.readdirSync(dataDir);
+
+    for (const file of files) {
+      const filePath = path.join(dataDir, file);
+      const content = fs.readFileSync(filePath, "utf8");
+
+      const lower = content.toLowerCase();
+      const idx = lower.indexOf(query);
+
+      if (idx !== -1) {
+        const snippet = content.substring(
+          Math.max(0, idx - 400),
+          Math.min(content.length, idx + 400)
+        );
+
+        results.push({
+          fileName: file,
+          snippet,
+        });
+      }
+    }
+  } catch (e) {
+    res.status(500).json({ error: "read error", detail: e.toString() });
     return;
   }
 
-  let results = [];
-
-  // Ищем во всех файлах
-  for (const file of files) {
-    const fullPath = path.join(dataDir, file);
-
-    // Только .txt файлы
-    if (!file.endsWith(".txt")) continue;
-
-    const text = fs.readFileSync(fullPath, "utf8");
-    const lower = text.toLowerCase();
-
-    if (lower.includes(query)) {
-      const index = lower.indexOf(query);
-      const start = Math.max(0, index - 300);
-      const end = Math.min(text.length, index + 700);
-
-      results.push({
-        fileName: file,
-        snippet: text.substring(start, end)
-      });
-    }
-  }
-
   res.json({
-    query: q,
+    query,
     results
   });
 }
